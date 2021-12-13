@@ -37,6 +37,7 @@ Bounce debouncer_r = Bounce();
 Bounce debouncer_l = Bounce();
 
 volatile static byte thr_connected = false;
+static byte is_first_switch = true;
 
 uint8_t identity_request[] =        { 0xf0, 0x7e, 0x7f, 0x06, 0x01, 0xf7 };
 uint8_t request_version[] =         { 0xf0, 0x00, 0x01, 0x0c, 0x24, 0x00, 0x4d, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf7 };
@@ -75,7 +76,7 @@ uint8_t read_sysex_responce() {
         Serial.println("Unsupported");
     }
   } while (size > 0); 
-  Serial.println();
+  Serial.println(read_data_size);
   return read_data_size;
 }
 
@@ -159,41 +160,39 @@ void loop() {
       preset_id = constrain(preset_id + button_state, 1, 5);
       bool switched = false;
       uint8_t attempts = 0;
-      while (!switched && 3 >= attempts) {
+      while (!switched && 3 > attempts) {
         switch(preset_id) {
         case 1:
             send_sysex_command(preset_change_request_1, sizeof(preset_change_request_1), "preset_change_request_1");
-            switched = (0 < read_sysex_responce()) ? true : false;
             break;
         case 2:
             send_sysex_command(preset_change_request_2, sizeof(preset_change_request_2), "preset_change_request_2");
-            switched = (0 < read_sysex_responce()) ? true : false;
             break;
         case 3:
             send_sysex_command(preset_change_request_3, sizeof(preset_change_request_3), "preset_change_request_3");
-            switched = (0 < read_sysex_responce()) ? true : false;
             break;
         case 4:
             send_sysex_command(preset_change_request_4, sizeof(preset_change_request_4), "preset_change_request_4");
-            switched = (0 < read_sysex_responce()) ? true : false;
             break;
         case 5:
             send_sysex_command(preset_change_request_5, sizeof(preset_change_request_5), "preset_change_request_5");
-            switched = (0 < read_sysex_responce()) ? true : false;
             break;
         }
+        switched = 0 < read_sysex_responce() || is_first_switch ? true : false; //for some reason thr don't send responce for fist swith TODO: check
         attempts += 1;
+        if (is_first_switch) is_first_switch = false;
       }
       if (switched) {
         Serial.println(preset_id);
         display.showNumberDec(preset_id, false);
       } else {
-          //Serial.println("Failed to swith to " + preset_id);
+          Serial.println("Failed to swith");
       }
-    } else {
-      thr_connected = false;
-      display.setSegments(seg_hi);
-      preset_id = 0;
     }
+  } else {
+    thr_connected = false;
+    display.setSegments(seg_hi);
+    preset_id = 0;
+    is_first_switch = true;
   }
 }
